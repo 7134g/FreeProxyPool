@@ -1,10 +1,11 @@
 import threading
 import time
-import traceback
-from concurrent.futures import ThreadPoolExecutor, Future
 
 from proxypool_thread.log import Log
 from proxypool_thread.setting import *
+
+
+mutex = threading.Lock()
 
 
 class Task:
@@ -12,7 +13,7 @@ class Task:
         self.fun = fun
         self.args = args
         self.kw = kw
-        self.name = fun.__str__()
+        self.name = self._get_task_class_name()
 
     def run(self):
         if self.args:
@@ -23,109 +24,160 @@ class Task:
         else:
             self.fun()
 
+    def _get_task_class_name(self):
+        c = self.fun.__qualname__
+        x = c.split(".")
+        return x[0]
+
 
 class Factory:
     def __new__(cls, *args, **kw):
         if not hasattr(cls, '_instance'):
             org = super(Factory, cls)
-            cls._instance = org.__new__(cls, *args, **kw)
-            cls._instance.task = []
-            cls._instance.worker = []
-            cls._instance._active_working = {"getter": 0, "tester": 0, "Scheduler": 0}
-            cls._instance.web_worker = Future()
-            cls._instance._pool = ThreadPoolExecutor(max_workers=CONCURRENT)
-            cls._instance.pool_status = True
-            cls._instance.mutex = threading.Lock()
+            cls._instance = org.__new__(cls)
+            cls._instance.tasks = []
+            cls._instance.workers = []
+            cls._instance._active_working = {}
         return cls._instance
+
+    def __init__(self):
+        self._max_workers = CONCURRENT
+        self.factory_status = True
+
     # 活动中的计数
-    def _minus_active(self, name):
-        with self.mutex:
-            if "Crawler" in name:
-                self._active_working["getter"] -= 1
-            elif "test_single_proxy" in name:
-                self._active_working["tester"] -= 1
-            else:
-                self._active_working["Scheduler"] -= 1
+    def minus_active(self, name):
+        with mutex:
+            self._active_working[name] -= 1
 
-    def _plus_active(self, name):
-        if "Crawler" in name:
-            self._active_working["getter"] += 1
-        elif "test_single_proxy" in name:
-            self._active_working["tester"] += 1
-        else:
-            self._active_working["Scheduler"] += 1
+    # 活动中的计数
+    def plus_active(self, name):
+        if name not in self._active_working.keys():
+            self._active_working[name] = 1
+        self._active_working[name] += 1
 
-    def _sleep(self, worker_id):
-        if type(worker_id) == float:
-            pass
-        Log.debug(f"工人{worker_id}号，沉睡")
-        time.sleep(WORKSLEEP)
-
+    # 生成打工人
     def _create_worker(self):
-        self.worker = [self._pool.submit(self._working, i) for i in range(CONCURRENT)]
+        for wid in range(self._max_workers):
+            w = Worker(wid, self)
+            self.workers.append(w)
 
-    def _working(self, worker_id):
-        while self.pool_status:
-            if not self.task:
-                self._sleep(worker_id)
-                continue
-            t = self._get()
-            try:
-                t.run()
-            except Exception:
-                Log.error(f"工人工作异常: {traceback.format_exc()}")
-            finally:
-                self._minus_active(t.name)
-        Log.debug(f"工人{worker_id}雇佣结束")
+    # 开始打工
+    def _woring(self):
+        for w in self.workers:
+            w.start()
 
-    def _get(self) -> (Task, None):
-        with self.mutex:
+    # 获取任务
+    def get_task(self) -> (Task, None):
+        with mutex:
             try:
-                return self.task.pop()
+                return self.tasks.pop()
             except IndexError:
                 return None
 
+    # 添加任务
     def add(self, fun, *args, **kwargs):
-        with self.mutex:
+        with mutex:
             t = Task(fun, *args, **kwargs)
-            self._plus_active(t.name)
-            self.task.append(t)
+            active_name = t.name
+            if active_name not in self._active_working.keys():
+                self._active_working[active_name] = 0
+            self.plus_active(active_name)
+            self.tasks.append(t)
+            return active_name
 
+    # 获取某项任务活动中数量
     def get_active(self, name):
-        with self.mutex:
+        with mutex:
             return self._active_working[name]
 
-    # 单批次任务等待完成
-    def wait(self, name):
-        Log.info(f"{name} 等待本次执行完毕")
-        while self.get_active(name) > 0:
-            time.sleep(EXCUTE_CYCLE / 2)
-            # if "tester" == name:
-            #     pass
-        Log.info(f"{name} 结束等待 {self.get_active(name)}")
+    # 等待某项任务完成
+    def wait(self, names):
+        Log.info(f"{names} 等待本次执行完毕")
+        for name in names:
+            while self.get_active(name) > 0:
+                time.sleep(WORKER_SLEEP)
+                # if "tester" == name:
+                #     pass
+            Log.info(f"{name} 结束等待")
 
-    def cencel(self):
-        if self.pool_status:
-            self.pool_status = False
-            self.web_worker.cancel()
-            for w in self.worker:
-                w.cancel()
+    # 解雇打工人
+    def stop(self):
+        while not self.tasks:
+            time.sleep(CHECK_FACTORY_STATUS)
 
-    def add_api(self, fun):
-        self.web_worker = self._pool.submit(fun)
+        if self.factory_status:
+            self.factory_status = False
+            for w in self.workers:
+                w.fired()
+
+    # 检查工人是不是全部解雇了
+    def shutdown(self):
+        for w in self.workers:
+            while w.wf != "fired":
+                Log.debug(f"正在赶打工人{w.wid}号离开")
+                time.sleep(CHECK_FACTORY_STATUS)
+            Log.debug(f"打工人{w.wid}号离开")
+        Log.info("正常关闭工厂")
+        return True
 
     def start(self):
-        Log.debug("线程池启动，创建工人")
+        Log.debug("线程池启动，招聘打工人")
         self._create_worker()
-        Log.debug("工人准备就绪")
-        while self.pool_status:
-            time.sleep(EXCUTE_CYCLE)
-        Log.debug("线程池关闭")
-        # 关闭池
-        return self._pool.shutdown()
+        Log.debug("打工人准备就绪")
+        self._woring()
+        while self.factory_status:
+            time.sleep(CHECK_FACTORY_STATUS)
+
+        # # 关闭池
+        # return self.shutdown()
 
 
-if __name__ == '__main__':
-    f = Factory()
-    f.start()
-    print("done")
+class Worker(threading.Thread):
+
+    def __init__(self, wid: int, factory: Factory, *args, **kwargs):
+        super(Worker, self).__init__(*args, **kwargs)
+        self.__running = threading.Event()  # 用于停止线程的标识
+        self.__running.set()  # 设置为True
+        self.factory = factory
+        self.wid = wid
+        self.status = True
+        self.wf = "doing"
+        self.sleep_count = 0
+
+    def run(self):
+        while self.factory.factory_status and self.status:
+            if not self.__running.is_set():
+                Log.info("咋瓦鲁多")
+            # 获取任务
+            t = self.factory.get_task()
+            if not t:
+                self._sleep(self.wid)
+                continue
+            try:
+                self.sleep_count = 0
+                t.run()
+                # print(f"打工人{self.wid}号 ，剩余工作 {self.factory._active_working}")
+            except Exception as e:
+                Log.error(f"打工人工作异常: {e}")
+            finally:
+                self.factory.minus_active(t.name)
+            self.__running.wait()  # 为True时立即返回, 为False时阻塞直到内部的标识位为True后返回
+        Log.debug(f"打工人{self.wid}你被炒鱿鱼了")
+        self.wf = "fired"
+
+    def fired(self):
+        self.status = False
+
+    def _sleep(self, wid):
+        self.sleep_count += 1
+        Log.debug(f"打工人{wid}号，沉睡第{self.sleep_count}次")
+        time.sleep(WORKER_SLEEP)
+
+    def pause(self):
+        # 暂停线程，调用wait时会发生阻塞，直到再次调用restart
+        self.__running.clear()
+        # print(f"stop __running {str(self.__running.is_set())}")
+
+    def restart(self):
+        self.__running.set()  # 恢复线程
+        # print(f"restart __running {str(self.__running.is_set())}")

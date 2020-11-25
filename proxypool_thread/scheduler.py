@@ -19,7 +19,7 @@ def schedule_tester():
             # print('tester开始运行')
             tester.run()
         except:
-            Log.error(f'tester: 测试代理异常, {traceback.format_exc()}')
+            Log.error(f'Tester: 测试代理异常, {traceback.format_exc()}')
         finally:
             time.sleep(TESTER_CYCLE)
 
@@ -47,15 +47,17 @@ def schedule_api():
 class Scheduler:
     def run(self):
         factory = Factory()
+        # factory.set_active_count([Getter, Tester])
         try:
             if TESTER_ENABLED:
                 factory.add(schedule_tester)
             if GETTER_ENABLED:
                 factory.add(schedule_getter)
             if API_ENABLED:
-                factory.add_api(schedule_api)
+                factory.add(schedule_api)
             factory.start()
         finally:
-            factory.cencel()
+            factory.stop()
+            factory.shutdown()
 
 

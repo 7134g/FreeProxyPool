@@ -27,19 +27,20 @@ class Getter():
             return False
     
     def run(self):
+        t = set()
         count = self.local.count()
         if self.is_over_threshold():
-            Log.info("getter：此时容量已达上限，不获取ip")
+            Log.info("Getter：此时容量已达上限，不获取ip")
             return
-        Log.info(f'getter：开始执行, 当前容量：{count}')
+        Log.info(f'Getter：开始执行, 当前容量：{count}')
         for callback_label in range(self.crawler.__CrawlFuncCount__):
             try:
                 callback = self.crawler.__CrawlFunc__[callback_label]
                 # 获取代理
-                self.factory.add(self.crawler.get_proxies, callback)
+                t.add(self.factory.add(self.crawler.get_proxies, callback))
                 sys.stdout.flush()
             except:
                 traceback.print_exc()
 
-        self.factory.wait("getter")
-        Log.info(f'getter：执行结束, 获取前容量：{count}, 当前：{self.local.count()}')
+        self.factory.wait(t)
+        Log.info(f'Getter：执行结束, 获取前容量：{count}, 当前：{self.local.count()}')

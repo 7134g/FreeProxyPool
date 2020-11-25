@@ -41,10 +41,10 @@ def random_proxy():
     Log.info(f"ip: {ip}")
     return ip
 
-@app.route('/count')
+@app.route('/sleep_count')
 def get_counts():
     """
-    Get the count of proxies
+    Get the sleep_count of proxies
     :return: 代理池总量
     """
     conn = LocalDict()

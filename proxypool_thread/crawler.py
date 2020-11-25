@@ -105,6 +105,8 @@ class Crawler(object, metaclass=ProxyMetaclass):
         """
         start_url = "http://www.xiladaili.com/"
         html = get_page(start_url)
+        if not html:
+            return
         etree_html = etree.HTML(html)
         ip_ports = etree_html.xpath("//tbody/tr/td[1]/text()")
 
