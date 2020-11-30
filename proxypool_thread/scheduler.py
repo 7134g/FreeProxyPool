@@ -16,9 +16,9 @@ def schedule_tester():
     tester = Tester()
     while True:
         try:
-            # print('tester开始运行')
             tester.run()
         except:
+            tester = Tester()
             Log.error(f'Tester: 测试代理异常, {traceback.format_exc()}')
         finally:
             time.sleep(TESTER_CYCLE)
@@ -30,9 +30,9 @@ def schedule_getter():
     getter = Getter()
     while True:
         try:
-            # print('getter：开始抓取代理')
             getter.run()
         except:
+            getter = Getter()
             Log.error(f'getter： 抓取代理异常, {traceback.format_exc()}')
         finally:
             time.sleep(GETTER_CYCLE)

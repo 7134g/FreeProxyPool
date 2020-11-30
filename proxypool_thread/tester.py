@@ -57,6 +57,7 @@ class Tester(object):
         :return:
         """
         t = set()
+        self._minus_count = 0
         count = self.local.count()
         if count == 0:
             Log.info("Tester：无代理")
