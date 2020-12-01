@@ -42,7 +42,7 @@ class Tester(object):
                     self.local.decrease(proxy, -MAX_SCORE)
                 else:
                     self.local.decrease(proxy)
-                Log.error(f'Tester：请求响应码不合法 {status_code} IP {proxy}')
+                Log.error(f'Tester：请求响应码不合法 {status_code} ,IP {proxy}, URL: {url}')
         except (ReadTimeout, HTTPError, ProxyError, ConnectionError):
             self._minus()
             self.local.decrease(proxy, -MAX_SCORE)

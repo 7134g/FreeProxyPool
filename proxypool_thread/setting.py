@@ -39,7 +39,6 @@ CHECK_FACTORY_STATUS = 10
 
 # 测试API，建议抓哪个网站测哪个
 TEST_URLS = [
-    'https://www.douban.com/',
     'https://www.baidu.com/',
     'https://www.sogou.com/',
              ]
