@@ -56,15 +56,21 @@ class Factory:
         self._active_working[name] += 1
 
     # 生成打工人
-    def _create_worker(self):
-        for wid in range(self._max_workers):
-            w = Worker(wid, self)
+    def _create_worker(self, count=0):
+        if count:
+            worker_count = count
+        else:
+            worker_count = self._max_workers
+
+        for wid in range(worker_count):
+            w = Worker(len(self.workers)+1, self)
             self.workers.append(w)
 
     # 开始打工
     def _woring(self):
         for w in self.workers:
-            w.start()
+            if w.wf == "wating":
+                w.start()
 
     # 获取任务
     def get_task(self) -> (Task, None):
@@ -100,7 +106,18 @@ class Factory:
                 #     pass
             Log.info(f"{name} 结束等待")
 
-    # 解雇打工人
+    def transfer(self, concurrent):
+        with mutex:
+            if concurrent < len(self.workers):
+                self._max_workers = concurrent
+                fired_target, self.workers = self.workers[concurrent:], self.workers[:concurrent]
+                for w in fired_target:
+                    w.fired()
+            else:
+                self._create_worker(concurrent-CONCURRENT)
+                self._woring()
+
+    # 解雇所有打工人
     def stop(self):
         while not self.tasks:
             time.sleep(CHECK_FACTORY_STATUS)
@@ -141,10 +158,11 @@ class Worker(threading.Thread):
         self.factory = factory
         self.wid = wid
         self.status = True
-        self.wf = "doing"
+        self.wf = "wating"
         self.sleep_count = 0
 
     def run(self):
+        self.wf = "doing"
         while self.factory.factory_status and self.status:
             if not self.__running.is_set():
                 Log.info("咋瓦鲁多")

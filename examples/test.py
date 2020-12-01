@@ -11,25 +11,31 @@ def test1(url):
     # return
 
 def test2(n):
+    t = set()
     time.sleep(n)
     print("test22222222", n)
-    # return
+    for i in range(10):
+        t.add(f.add(test1, 'https://www.baidu.com/'))
+    f.wait(t)
 
-def test3(f):
+
+def test3():
     time.sleep(3)
     print("test333333333")
-    # f.cencel()
+    f.transfer(10)
     return
+
+def test4():
+    time.sleep(10)
+    print("test444444444")
+    f.transfer(5)
 
 
 if __name__ == '__main__':
     f = Factory()
-    f.add(test1, 'https://www.douban.com/')
-    # for i in range(20):
-    #     f.add(test1, 'https://www.baidu.com/')
     f.add(test2, 2)
-    f.add(test3, f)
-    f.wait()
+    f.add(test3)
+    f.add(test4)
     f.start()
     print("done")
 
