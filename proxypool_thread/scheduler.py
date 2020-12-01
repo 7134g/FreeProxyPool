@@ -1,3 +1,4 @@
+import gc
 import time
 import traceback
 
@@ -21,6 +22,7 @@ def schedule_tester():
             tester = Tester()
             Log.error(f'Tester: 测试代理异常, {traceback.format_exc()}')
         finally:
+            gc.collect()
             time.sleep(TESTER_CYCLE)
 
 def schedule_getter():
@@ -35,6 +37,7 @@ def schedule_getter():
             getter = Getter()
             Log.error(f'getter： 抓取代理异常, {traceback.format_exc()}')
         finally:
+            gc.collect()
             time.sleep(GETTER_CYCLE)
 
 def schedule_api():
