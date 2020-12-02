@@ -44,7 +44,7 @@ def schedule_api():
     """
     开启API
     """
-    app.run(API_HOST, API_PORT, debug=True)
+    app.run(API_HOST, API_PORT)
 
 
 class Scheduler:
