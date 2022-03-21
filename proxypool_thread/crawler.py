@@ -1,3 +1,4 @@
+import json
 import re
 import traceback
 
@@ -73,80 +74,97 @@ class Crawler(object, metaclass=ProxyMetaclass):
                         address_port = address + ':' + port
                         yield address_port.replace(' ', '')
 
-    def crawl_kuaidaili(self):
-        for i in range(1, 10):
-            start_url = 'http://www.kuaidaili.com/free/inha/{}/'.format(i)
-            html = get_page(start_url)
-            if html:
-                ip_address = re.compile('<td data-title="IP">(.*?)</td>')
-                re_ip_address = ip_address.findall(html)
-                port = re.compile('<td data-title="PORT">(.*?)</td>')
-                re_port = port.findall(html)
-                for address, port in zip(re_ip_address, re_port):
-                    address_port = address + ':' + port
-                    yield address_port.replace(' ', '')
-
-    def crawl_data5u(self):
-        start_url = "http://www.data5u.com"
-        html = get_page(start_url)
-        if html is None:
-            return
-        doc = pq(html)
-        items = doc('.wlist ul.l2').items()
-        for item in items:
-            host = item.find('span:first-child').text()
-            port = item.find('span:nth-child(2)').text()
-            yield ':'.join([host, port])
-
-    def crawl_xiladaili(self):
+    def crawl_mimvp(self):
         """
-        parse html file to get proxies
+        米扑代理 https://proxy.mimvp.com/
         :return:
         """
-        start_url = "http://www.xiladaili.com/"
-        html = get_page(start_url)
+        url_list = [
+            'https://proxy.mimvp.com/freeopen?proxy=in_hp',
+            'https://proxy.mimvp.com/freeopen?proxy=in_tp',
+            'https://proxy.mimvp.com/freeopen?proxy=out_hp'
+            'https://proxy.mimvp.com/freeopen?proxy=out_tp'
+        ]
+        port_img_map = {'DMxMjg': '3128', 'Dgw': '80', 'DgwODA': '8080',
+                        'DgwOA': '808', 'DgwMDA': '8000', 'Dg4ODg': '8888',
+                        'DgwODE': '8081', 'Dk5OTk': '9999'}
+        for url in url_list:
+            html = get_page(url)
+            if not html:
+                return
+            html_tree = etree.HTML(html)
+            for tr in html_tree.xpath(".//table[@class='mimvp-tbl free-proxylist-tbl']/tbody/tr"):
+                try:
+                    ip = ''.join(tr.xpath('./td[2]/text()'))
+                    port_img = ''.join(tr.xpath('./td[3]/img/@src')).split("port=")[-1]
+                    port = port_img_map.get(port_img[14:].replace('O0O', ''))
+                    if "*" in ip:
+                        continue
+                    if port:
+                        yield '%s:%s' % (ip, port)
+                except Exception as e:
+                    print(e)
+
+    def crawl_kxdaili(self):
+        """ 开心代理 """
+        target_urls = ["http://www.kxdaili.com/dailiip.html", "http://www.kxdaili.com/dailiip/2/1.html"]
+        for url in target_urls:
+            html = get_page(url)
+            if not html:
+                return
+            tree = etree.HTML(html)
+            for tr in tree.xpath("//table[@class='active']//tr")[1:]:
+                ip = "".join(tr.xpath('./td[1]/text()')).strip()
+                port = "".join(tr.xpath('./td[2]/text()')).strip()
+                yield "%s:%s" % (ip, port)
+
+    def crawl_dieniao(self):
+        """ 蝶鸟IP """
+        url = "https://www.dieniao.com/FreeProxy.html"
+        html = get_page(url)
         if not html:
             return
-        etree_html = etree.HTML(html)
-        ip_ports = etree_html.xpath("//tbody/tr/td[1]/text()")
+        tree = etree.HTML(html)
+        for li in tree.xpath("//div[@class='free-main col-lg-12 col-md-12 col-sm-12 col-xs-12']/ul/li")[
+                  1:]:
+            ip = "".join(li.xpath('./span[1]/text()')).strip()
+            port = "".join(li.xpath('./span[2]/text()')).strip()
+            yield "%s:%s" % (ip, port)
 
-        for ip_port in ip_ports:
-            host = ip_port.partition(":")[0]
-            port = ip_port.partition(":")[2]
-            yield ':'.join([host, port])
-
-    def crawl_zdaye(self):
-        base_url = 'https://www.zdaye.com/dayProxy/{page}.html'
-        head = {
-            "Cookie": "_qddac=3-3-1.1.u7q9fs.khfmp63u; acw_tc=76b20f7016052337002376740e34e53c53751ff3dd45dc920c0e102e8298be; __51cke__=; Hm_lvt_80f407a85cf0bc32ab5f9cc91c15f88b=1605233700; __root_domain_v=.zdaye.com; _qddaz=QD.amc9vg.uv9mtn.khfmp5xx; _qdda=3-1.1; _qddab=3-u7q9fs.khfmp63u; _qddamta_2355087264=3-0; acw_sc__v2=5fadec2632d8f78e61f23f09232ed1c5c171b200; ASPSESSIONIDSGQQDQDB=HPEIIOOCNIFNIJAPKMGKBPIO; __tins__16949115=%7B%22sid%22%3A%201605233699770%2C%20%22vd%22%3A%204%2C%20%22expires%22%3A%201605236758401%7D; __51laig__=4; Hm_lpvt_80f407a85cf0bc32ab5f9cc91c15f88b=1605234959"}
-
-        urls = [base_url.format(page=page) for page in range(1, 5)]
+    def crawl_proxy11(self):
+        """ PROXY11 https://proxy11.com """
+        urls = [
+            "https://proxy11.com/api/demoweb/proxy.json?country=cn",
+            "https://proxy11.com/api/demoweb/proxy.json?country=hk",
+            "https://proxy11.com/api/demoweb/proxy.json?country=tw",
+        ]
 
         for url in urls:
-            proxy = {
-                "http": "http://" + LocalDict().max(),
-            }
-            html = get_page(url, head, proxy)
-            if html is None:
-                continue
-            doc = pq(html)
-            for item in doc('#J_posts_list .thread_item div div p a').items():
-                url_detail = 'https://www.zdaye.com' + item.attr('href')
-                html_detail = get_page(url_detail, head, proxy)
-                if html_detail is None:
-                    break
-                doc_detail = pq(html_detail)
-                trs = doc_detail('.cont br').items()
-                for tr in trs:
-                    line = tr[0].tail
-                    match = re.search(r'(\d+\.\d+\.\d+\.\d+):(\d+)', line)
-                    if match:
-                        host = match.group(1)
-                        port = match.group(2)
-                        yield ':'.join([host, port])
+            try:
+                html = get_page(url)
+                if not html:
+                    return
+                resp_json = json.loads(html)
+                for each in resp_json.get("data", []):
+                    yield "%s:%s" % (each.get("ip", ""), each.get("port", ""))
+            except Exception as e:
+                print(e)
+
+    def crawl_jiangxianli(self):
+        """ 免费代理库 """
+        for page in range(1, 5):
+            url = 'http://ip.jiangxianli.com/?country=中国&page={}'.format(page)
+            html = get_page(url)
+            if not html:
+                return
+            tree = etree.HTML(html)
+            for index, tr in enumerate(tree.xpath("//table//tr")):
+                if index == 0:
+                    continue
+                yield ":".join(tr.xpath("./td/text()")[0:2]).strip()
 
 
 if __name__ == '__main__':
     c = Crawler()
-    for i in c.crawl_zdaye():
+    for i in c.crawl_kxdaili():
         print(i)

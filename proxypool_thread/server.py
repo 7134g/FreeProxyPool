@@ -62,7 +62,7 @@ def decrease_proxy():
     """
     proxy = request.args.get("proxy")
     conn = LocalDict()
-    conn.decrease(proxy, MAX_SCORE)
+    conn.delete(proxy)
     Log.info(f"删除的ip为{proxy}")
     return "ok"
 

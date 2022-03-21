@@ -16,9 +16,12 @@ class Tester(object):
         self.mutex = threading.Lock()
         self._minus_count = 0
 
-    def _minus(self):
+    def _minus(self, proxy):
+        if not self.local.get(proxy):
+            return False
         with self.mutex:
             self._minus_count += 1
+        return True
 
     def test_single_proxy(self, url, proxy):
         """
@@ -35,18 +38,18 @@ class Tester(object):
             status_code = response.status_code
             if status_code in VALID_STATUS_CODES:
                 Log.debug(f'Tester：代理可用 {proxy}')
-                pass
+                return
             else:
                 if status_code in FORBIDEN_STATUS_CODES:
-                    self._minus()
+                    self._minus(proxy)
                     self.local.decrease(proxy, -MAX_SCORE)
                 else:
                     self.local.decrease(proxy)
                 Log.error(f'Tester：请求响应码不合法 {status_code} ,IP {proxy}, URL: {url}')
         except (ReadTimeout, HTTPError, ProxyError, ConnectionError):
-            self._minus()
-            self.local.decrease(proxy, -MAX_SCORE)
-            Log.warning(f'Tester：无用ip，直接删掉， ip: {proxy}')
+            if self._minus(proxy):
+                self.local.decrease(proxy, -MAX_SCORE)
+                Log.warning(f'Tester：无法访问{url}，直接删掉， ip: {proxy}')
         except (TypeError, AttributeError) as e:
             self.local.decrease(proxy)
             Log.error(f'Tester：代理请求失败 {proxy} ERROR: {e}')

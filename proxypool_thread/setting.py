@@ -40,7 +40,6 @@ CHECK_FACTORY_STATUS = 10
 # 测试API，建议抓哪个网站测哪个
 TEST_URLS = [
     'https://www.baidu.com/',
-    'https://www.sogou.com/',
              ]
 
 # API接口，http://localhost:5555/random
