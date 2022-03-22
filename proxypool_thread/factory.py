@@ -67,9 +67,9 @@ class Factory:
             self.workers.append(w)
 
     # 开始打工
-    def _woring(self):
+    def _working(self):
         for w in self.workers:
-            if w.wf == "wating":
+            if w.wf == "waiting":
                 w.start()
 
     # 获取任务
@@ -115,7 +115,7 @@ class Factory:
                     w.fired()
             else:
                 self._create_worker(concurrent-CONCURRENT)
-                self._woring()
+                self._working()
 
     # 解雇所有打工人
     def stop(self):
@@ -141,7 +141,7 @@ class Factory:
         Log.debug("线程池启动，招聘打工人")
         self._create_worker()
         Log.debug("打工人准备就绪")
-        self._woring()
+        self._working()
         while self.factory_status:
             time.sleep(CHECK_FACTORY_STATUS)
 
@@ -158,7 +158,7 @@ class Worker(threading.Thread):
         self.factory = factory
         self.wid = wid
         self.status = True
-        self.wf = "wating"
+        self.wf = "waiting"
         self.sleep_count = 0
 
     def run(self):
