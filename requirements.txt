@@ -16,7 +16,7 @@ pyinstaller==4.8
 pyinstaller-hooks-contrib==2021.5
 pyquery==1.4.1
 pywin32-ctypes==0.2.0
-requests==2.25.0
+requests==2.31.0
 typing_extensions==4.0.1
 urllib3==1.26.8
 Werkzeug==1.0.1
